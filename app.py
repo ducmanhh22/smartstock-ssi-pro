@@ -13,6 +13,105 @@ from finance import analyze, describe, summarize
 from ssi_data import fetch_ssi
 from storage import load, save
 
+
+# ================ DANH MUC 50 MA & TIM KIEM ==================
+"""Danh mục 50 mã ngân hàng và chứng khoán Việt Nam để tìm kiếm.
+
+Chỉ là thông tin định danh, KHÔNG PHẢI bảng giá hoặc bảo đảm SSI trả dữ liệu.
+27 ngân hàng, 23 công ty chứng khoán. Không chứa API key.
+"""
+import unicodedata
+
+# (Mã cổ phiếu, tên thương mại, nhóm, sàn tham khảo, từ khóa thay thế)
+BANKS = [
+    ('VCB', 'Vietcombank', 'Ngân hàng', 'HOSE', 'Ngoại thương'),
+    ('BID', 'BIDV', 'Ngân hàng', 'HOSE', 'Đầu tư Phát triển'),
+    ('CTG', 'VietinBank', 'Ngân hàng', 'HOSE', 'Công thương'),
+    ('TCB', 'Techcombank', 'Ngân hàng', 'HOSE', 'Kỹ thương'),
+    ('VPB', 'VPBank', 'Ngân hàng', 'HOSE', 'Việt Nam Thịnh Vượng'),
+    ('MBB', 'MB Bank', 'Ngân hàng', 'HOSE', 'Quân đội MB'),
+    ('LPB', 'LPBank', 'Ngân hàng', 'HOSE', 'Lộc Phát Bưu điện Liên Việt'),
+    ('HDB', 'HDBank', 'Ngân hàng', 'HOSE', 'Phát triển TP Hồ Chí Minh'),
+    ('STB', 'Sacombank', 'Ngân hàng', 'HOSE', 'Sài Gòn Thương Tín'),
+    ('ACB', 'ACB', 'Ngân hàng', 'HOSE', 'Á Châu'),
+    ('SHB', 'SHB', 'Ngân hàng', 'HOSE', 'Sài Gòn Hà Nội'),
+    ('VIB', 'VIB', 'Ngân hàng', 'HOSE', 'Quốc tế Việt Nam'),
+    ('SSB', 'SeABank', 'Ngân hàng', 'HOSE', 'Đông Nam Á'),
+    ('MSB', 'MSB', 'Ngân hàng', 'HOSE', 'Hàng Hải Maritime'),
+    ('TPB', 'TPBank', 'Ngân hàng', 'HOSE', 'Tiên Phong'),
+    ('EIB', 'Eximbank', 'Ngân hàng', 'HOSE', 'Xuất Nhập Khẩu'),
+    ('OCB', 'OCB', 'Ngân hàng', 'HOSE', 'Phương Đông'),
+    ('NVB', 'NCB', 'Ngân hàng', 'HNX', 'Quốc Dân'),
+    ('NAB', 'Nam A Bank', 'Ngân hàng', 'HOSE', 'Nam Á'),
+    ('ABB', 'ABBank', 'Ngân hàng', 'UPCoM', 'An Bình'),
+    ('VBB', 'VietBank', 'Ngân hàng', 'UPCoM', 'Việt Nam Thương Tín'),
+    ('BAB', 'Bac A Bank', 'Ngân hàng', 'HNX', 'Bắc Á'),
+    ('VAB', 'VietABank', 'Ngân hàng', 'HOSE', 'Việt Á'),
+    ('KLB', 'KienlongBank', 'Ngân hàng', 'HOSE', 'Kiên Long'),
+    ('BVB', 'BVBank', 'Ngân hàng', 'UPCoM', 'Bản Việt'),
+    ('PGB', 'PGBank', 'Ngân hàng', 'UPCoM', 'Thịnh Vượng và Phát Triển'),
+    ('SGB', 'Saigonbank', 'Ngân hàng', 'UPCoM', 'Sài Gòn Công Thương'),
+]
+
+BROKERS = [
+    ('SSI', 'Chứng khoán SSI', 'Chứng khoán', 'HOSE', 'Securities'),
+    ('HCM', 'Chứng khoán TP.HCM (HSC)', 'Chứng khoán', 'HOSE', 'HSC'),
+    ('VND', 'VNDIRECT', 'Chứng khoán', 'HOSE', 'Chứng khoán VND'),
+    ('VCI', 'Vietcap', 'Chứng khoán', 'HOSE', 'Bản Việt'),
+    ('MBS', 'Chứng khoán MB', 'Chứng khoán', 'HNX', 'MB Securities'),
+    ('SHS', 'Chứng khoán Sài Gòn – Hà Nội', 'Chứng khoán', 'HNX', 'Saigon Hanoi'),
+    ('VIX', 'Chứng khoán VIX', 'Chứng khoán', 'HOSE', 'VIX'),
+    ('FTS', 'Chứng khoán FPT', 'Chứng khoán', 'HOSE', 'FPTS'),
+    ('BSI', 'Chứng khoán BIDV', 'Chứng khoán', 'HOSE', 'BSC'),
+    ('CTS', 'Chứng khoán VietinBank', 'Chứng khoán', 'HOSE', 'Vietin'),
+    ('AGR', 'Chứng khoán Agribank', 'Chứng khoán', 'HOSE', 'Agriseco'),
+    ('ORS', 'Chứng khoán Tiên Phong', 'Chứng khoán', 'HOSE', 'TPS'),
+    ('DSC', 'Chứng khoán DSC', 'Chứng khoán', 'HOSE', 'DSC'),
+    ('DSE', 'Chứng khoán DNSE', 'Chứng khoán', 'HOSE', 'DNSE'),
+    ('VDS', 'Chứng khoán Rồng Việt', 'Chứng khoán', 'HOSE', 'VDSC'),
+    ('TVS', 'Chứng khoán Thiên Việt', 'Chứng khoán', 'HOSE', 'Thien Viet'),
+    ('BVS', 'Chứng khoán Bảo Việt', 'Chứng khoán', 'HNX', 'Bao Viet'),
+    ('ABW', 'Chứng khoán An Bình', 'Chứng khoán', 'UPCoM', 'An Binh'),
+    ('TCX', 'Chứng khoán Kỹ Thương', 'Chứng khoán', 'HOSE', 'TCBS Techcom Securities'),
+    ('VCK', 'Chứng khoán VPS', 'Chứng khoán', 'HOSE', 'VPS'),
+    ('VPX', 'Chứng khoán VPBank', 'Chứng khoán', 'HOSE', 'VPBankS'),
+    ('APG', 'Chứng khoán APG', 'Chứng khoán', 'HOSE', 'APG'),
+    ('EVS', 'Chứng khoán Everest', 'Chứng khoán', 'HNX', 'Everest'),
+]
+
+CATALOG = BANKS + BROKERS
+BY_SYMBOL = {entry[0]: entry for entry in CATALOG}
+
+
+def normalize_text(text):
+    """Tìm kiếm không phân biệt dấu tiếng Việt và chữ hoa/thường."""
+    text = str(text or '').strip().casefold().replace('đ', 'd')
+    return ''.join(char for char in unicodedata.normalize('NFD', text)
+                   if unicodedata.category(char) != 'Mn')
+
+
+def find_stocks(query='', group='Tất cả'):
+    """Return matches for mã, tên, và tên gọi khác, kể cả từ khóa không dấu."""
+    terms = normalize_text(query).split()
+    result = []
+    for entry in CATALOG:
+        symbol, name, category, exchange, aliases = entry
+        if group != 'Tất cả' and category != group:
+            continue
+        haystack = normalize_text(' '.join(entry))
+        if all(term in haystack for term in terms):
+            result.append(entry)
+    # Match code / name prefix first when searching.
+    if terms:
+        needle = ' '.join(terms)
+        result.sort(key=lambda e: (
+            not normalize_text(e[0]).startswith(needle),
+            not normalize_text(e[1]).startswith(needle), e[0]
+        ))
+    return result
+
+# ================ KET THUC DANH MUC ===========================
+
 st.set_page_config(
     page_title="SmartStock Terminal | SSI Market Analytics",
     page_icon="📈",
@@ -113,6 +212,9 @@ section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding-top:1
 .watch-price {font:700 19px 'Space Grotesk',sans-serif;color:#eaf6ff;margin:12px 0 5px;overflow-wrap:anywhere;}
 .watch-change {font-weight:700;font-size:12px;}
 .watch-sub {color:#7992ab;font-size:10px;margin-top:9px;}
+[data-testid="stTextInput"] input {min-height:42px;}
+[data-testid="stExpander"] {border:1px solid #294056;border-radius:13px;background:#101c2b;}
+[data-testid="stExpander"] summary {color:#d4e5f7;font-weight:700;}
 [data-testid="stPlotlyChart"] {max-width:100%;min-width:0;}
 [data-testid="stDataFrame"] {max-width:100%;min-width:0;}
 @media (max-width: 1200px) {
@@ -246,7 +348,8 @@ def indicator_chart(df, indicator):
     return plot_theme(fig, 295)
 
 
-SYMBOLS = ['FPT', 'HPG', 'VNM', 'VCB', 'SSI', 'MWG', 'VPB', 'TCB']
+FEATURED_SYMBOLS = ['FPT', 'HPG', 'VNM', 'VCB', 'SSI', 'MWG', 'VPB', 'TCB']
+SYMBOLS = list(dict.fromkeys(FEATURED_SYMBOLS + [e[0] for e in CATALOG]))
 source_names = {'DEMO': 'DỮ LIỆU MẪU', 'SSI': 'SSI FASTCONNECT'}
 now_text = datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')).strftime('%d/%m/%Y · %H:%M')
 
@@ -265,13 +368,53 @@ with st.sidebar:
 
 st.markdown(f'''<div class="topline"><div style="color:#839ab3;font-size:12px;letter-spacing:1px;font-weight:800">SMARTSTOCK <span style="color:#45546b">/</span> SSI MARKET ANALYTICS</div><div style="font-size:12px;color:#839bb3">◷ {escape(now_text)} VN</div></div>''', unsafe_allow_html=True)
 st.markdown('''<div class="hero"><div class="hero-eyebrow">SSI FASTCONNECT · MARKET INTELLIGENCE</div><div class="hero-title">Thị trường trong tầm mắt.</div><p class="hero-copy">Một không gian theo dõi chứng khoán chuyên nghiệp: biểu đồ giá, động lượng, khối lượng và dữ liệu có thể kiểm chứng — <b style="color:#e6f6ff">không đặt lệnh giao dịch</b>.</p><span class="hero-badge">◆ SMARTSTOCK PRO · SSI EDITION</span></div>''', unsafe_allow_html=True)
+# --- Smart bank search: live filtering, accent-insensitive, on desktop & mobile. ---
+st.markdown('<div class="kicker">KHÁM PHÁ CỔ PHIẾU NGÂN HÀNG & CHỨNG KHOÁN</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">🏦 Tìm ngân hàng trong vài giây</div>'
+            '<div class="section-sub">Gõ mã hoặc tên ngân hàng — có thể tìm không dấu. '
+            'Danh mục 50 mã gồm 27 ngân hàng và 23 công ty chứng khoán, không phải 50 ngân hàng.</div>',
+            unsafe_allow_html=True)
+search_col, filter_col = st.columns([2.6, 1], gap='small')
+with search_col:
+    search_query = st.text_input('🔎 Tìm tên ngân hàng hoặc mã cổ phiếu',
+        placeholder='Ví dụ: Vietcombank, VCB, Techcombank, MB Bank, TCB…',
+        key='bank_search')
+with filter_col:
+    search_group = st.selectbox('Lọc theo nhóm',
+        ['Tất cả', 'Ngân hàng', 'Chứng khoán'], key='bank_group')
+found = find_stocks(search_query, search_group)
+st.caption(f'🔍 Tìm thấy **{len(found)} mã** phù hợp / 50 mã trong danh mục. '
+           'Bảng danh mục không phải bảng giá trực tiếp.')
+if found:
+    found_codes = [e[0] for e in found]
+    pickcol, btncol = st.columns([2.6, 1], gap='small')
+    with pickcol:
+        st.selectbox('Chọn kết quả để mở biểu đồ', found_codes,
+            format_func=lambda code: f'{code} · {BY_SYMBOL[code][1]}',
+            key='bank_pick')
+    with btncol:
+        st.write('')
+        st.write('')
+        def select_search_result():
+            # Streamlit button callback runs BEFORE widgets on the next rerun.
+            st.session_state['symbol'] = st.session_state['bank_pick']
+        st.button('📈 Xem mã đã chọn', type='primary',
+                  on_click=select_search_result, use_container_width=True)
+    with st.expander(f'Xem danh sách {len(found)} mã tìm được', expanded=bool(search_query)):
+        st.dataframe(pd.DataFrame([
+            {'Mã': code, 'Tên doanh nghiệp': name, 'Nhóm': group, 'Sàn': exchange}
+            for code, name, group, exchange, _ in found
+        ]), hide_index=True, use_container_width=True, height=min(350, 62 + len(found) * 35))
+else:
+    st.info('Không tìm thấy mã phù hợp. Thử tìm bằng mã như VCB, TCB, MBB hoặc chọn nhóm “Tất cả”.')
 st.markdown('<div class="kicker">BỘ ĐIỀU KHIỂN THỊ TRƯỜNG</div>', unsafe_allow_html=True)
 with st.container():
     ctl1, ctl2, ctl3, ctl4 = st.columns([1.5,1,1,1], gap='small')
     with ctl1:
         choice = st.selectbox('Nguồn dữ liệu', ['Demo (mô phỏng)', 'SSI FastConnect (thật)'], key='data_source', help='Không bao giờ thay dữ liệu SSI thật bằng dữ liệu mô phỏng khi có lỗi.')
     with ctl2:
-        symbol = st.selectbox('Mã cổ phiếu', SYMBOLS, key='symbol')
+        symbol = st.selectbox('Mã cổ phiếu', SYMBOLS, key='symbol',
+            format_func=lambda code: f'{code} · {BY_SYMBOL[code][1]}' if code in BY_SYMBOL else code)
     with ctl3:
         count_label = st.selectbox('Khoảng dữ liệu', ['Tất cả nến', '120 nến', '60 nến', '30 nến'], index=0)
     with ctl4:
@@ -319,7 +462,7 @@ chg = s['window_change_pct']
 
 # Horizontal, touch-scrollable ticker; SSI only uses data downloaded from SSI.
 ticker_parts = []
-for tape_symbol in SYMBOLS:
+for tape_symbol in FEATURED_SYMBOLS:
     tape_data = analyze(example_candles(tape_symbol)) if source == 'DEMO' else analyze(load('SSI', tape_symbol))
     if tape_data.empty:
         continue
@@ -373,7 +516,7 @@ with tab_overview:
 with tab_watch:
     st.markdown('<div class="section-title">Danh sách theo dõi</div><div class="section-sub">Các mã cổ phiếu đã có dữ liệu. Với SSI, chỉ hiển thị những mã đã thật sự tải về máy.</div>', unsafe_allow_html=True)
     rows=[]
-    for sym in SYMBOLS:
+    for sym in FEATURED_SYMBOLS:
         data = analyze(example_candles(sym)) if source=='DEMO' else analyze(load('SSI', sym))
         if data.empty:
             if source=='SSI':
